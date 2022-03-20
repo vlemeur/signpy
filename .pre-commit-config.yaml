@@ -1,0 +1,96 @@
+# https://pre-commit.com/index.html#top_level-default_stages
+default_stages: [commit] # All hooks that do not specify any stages are set to `commit` by default
+repos:
+  # Generic Hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  # File Formatting Hook
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.5.1
+    hooks:
+      - id: prettier
+  # Linters executed with tox
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: tox -e black-run
+        language: system
+        types: [python]
+      - id: isort
+        name: isort
+        entry: tox -e isort-run
+        language: system
+        types: [python]
+      - id: bandit
+        name: bandit
+        entry: tox -e bandit
+        language: system
+        types: [python]
+      - id: safety
+        name: safety
+        entry: tox -e safety
+        language: system
+        types: [python]
+      - id: flake8
+        name: flake8
+        entry: tox -e flake8
+        language: system
+        types: [python]
+        # Only executed during push when pre-push hooks have been installed
+        # https://pre-commit.com/index.html#pre-commit-during-push
+      - id: spelling
+        name: spelling
+        entry: tox -e spelling
+        language: system
+        types: [python]
+        stages: [push]
+      - id: pylint
+        name: pylint
+        entry: tox -e pylint
+        language: system
+        types: [python]
+        stages: [push]
+      - id: mypy
+        name: mypy
+        entry: tox -e mypy
+        language: system
+        types: [python]
+        stages: [push]
+  # Hooks to lint notebooks
+  # Example taken: from https://nbqa.readthedocs.io/en/latest/pre-commit.html
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.2.3
+    hooks:
+      - id: nbqa-black
+        additional_dependencies: [black~=21.11b1]
+      - id: nbqa-isort
+        additional_dependencies: [isort~=5.10.1]
+      # Added custom hook for autoflake: https://nbqa.readthedocs.io/en/latest/pre-commit.html#custom-hooks
+      - id: nbqa
+        entry: nbqa autoflake
+        name: nbqa-autoflake
+        alias: nbqa-autoflake
+        additional_dependencies: [autoflake~=1.4]
+        args:
+          - --in-place
+          - --remove-unused-variables
+          - --remove-all-unused-imports
+          - --expand-star-imports
+# Uncomment this block if you want your notebooks to be stripped of outputs
+# Automatically when committed.
+# From: https://github.com/kynan/nbstripout#using-nbstripout-as-a-pre-commit-hook
+#  - repo: https://github.com/kynan/nbstripout
+#    rev: 0.5.0
+#    hooks:
+#      - id: nbstripout

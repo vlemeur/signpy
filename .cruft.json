@@ -1,0 +1,21 @@
+{
+  "template": "git@github.com:vlemeur/vlm-coockiecutter.git",
+  "commit": "83850461ef68437c7df82939177e07d27ab78903",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "author": "Vincent LE MEUR",
+      "email": "vincenlemeur@gmail.com",
+      "project_folder": "signpy",
+      "package_name": "signpy",
+      "repository_url": "https://github.com/vlemeur/signpy",
+      "project_short_description": "Sign Language recognition",
+      "data_analysis": "n",
+      "check_dependencies_updates": "n",
+      "documentation": "y",
+      "version": "0.0.0",
+      "_template": "git@github.com:vlemeur/vlm-coockiecutter.git"
+    }
+  },
+  "directory": null
+}

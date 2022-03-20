@@ -1,0 +1,88 @@
+
+name: Linters and Tests
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "!*"
+
+env:
+  PIP_INDEX_URL: https://pypi.python.org/simple
+
+jobs:
+  lint:
+    name: Linters on Python 3.8 (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Current Branch
+        uses: actions/checkout@v2
+      - name: Set Up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Tox
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox~=3.24.4
+      - name: Run Build
+        run: tox -e build
+      - name: Run Bandit
+        run: tox -e bandit
+      - name: Run Black
+        run: tox -e black
+      - name: Run Isort
+        run: tox -e isort
+      - name: Run pylint
+        run: tox -e pylint
+      - name: Install enchant
+        run: sudo apt-get install enchant
+      - name: Run spellcheck
+        run: tox -e spelling
+      - name: Run mypy
+        run: tox -e mypy
+      - name: Run flake8
+        run: tox -e flake8
+      - name: Run Safety
+        run: tox -e safety
+
+  tests:
+    needs: lint
+    strategy:
+      matrix:
+        include:
+          - { python: 3.8, os: ubuntu-latest }
+          - { python: 3.9, os: ubuntu-latest }
+          - { python: 3.9, os: windows-latest }
+    name: Python ${{ matrix.python }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Current Branch
+        uses: actions/checkout@v2
+      - name: Set Up Python ${{ matrix.python }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox~=3.24.4 coverage==5.4
+      - name: Run Tests with tox
+        # Run tox using the version of Python in `PATH`
+        run: |
+          tox -e py
+          coverage xml
+
+  sonar:
+    needs: lint
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Current Branch
+        uses: actions/checkout@v2
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

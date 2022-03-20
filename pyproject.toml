@@ -1,0 +1,13 @@
+[build-system]
+requires = [
+    "setuptools~=53.0.0",
+    "wheel~=0.36.2"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
