@@ -3,8 +3,8 @@
 
 [theme]
 base="light"
-primaryColor="#1089FF" # -> Metroscope Official Blue
-#textColor="#142433" # -> Metroscope Software Navigation Bar (not completely black)
+primaryColor="#1089FF"
+#textColor="#142433"
 
 [server]
 runOnSave=true

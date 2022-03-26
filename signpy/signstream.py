@@ -98,7 +98,7 @@ class NoLoader:  # pylint:disable=too-few-public-methods
 
 if __name__ == "__main__":
     app = HydraApp(
-        title="Metroscope",
+        title="SignPy",
         layout="wide",
         favicon=logo,
         navbar_animation=False,
