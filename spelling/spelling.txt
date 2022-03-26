@@ -120,6 +120,7 @@ zlib
 
 # Python
 
+Hydralit
 abspath
 abstractmethod
 arg
@@ -265,6 +266,7 @@ splitlines
 startswith
 staticmethod
 str
+streamlit
 strftime
 strptime
 struct

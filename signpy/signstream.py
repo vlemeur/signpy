@@ -6,7 +6,7 @@ import streamlit as st
 from hydralit import HydraApp, HydraHeadApp  # type: ignore
 from PIL import Image
 
-# Loading logo for favicon
+# Loading logo
 PATH_LOGO = Path(__file__).parent.parent / "static" / "sign-language.png"
 logo = Image.open(fp=PATH_LOGO)
 
