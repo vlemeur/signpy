@@ -18,6 +18,12 @@ pip install signpy
 import signpy
 ```
 
+## How to run app
+
+- Make sure Docker is installed and configured
+- Run `sh .streamlit/build.sh`
+- Open a navigator and go to `localhost:8501`
+
 ## Supported Python versions
 
 ## Dependencies
@@ -90,6 +96,7 @@ Some resources to help you :
 - Other solutions to common issues : [Common issues and solutions](https://mypy.readthedocs.io/en/stable/common_issues.html#spurious-errors-and-locally-silencing-the-checker)
 
 ## Working with the spell checker
+
 - The spell checker used for this project is [pyenchant](https://github.com/pyenchant/pyenchant) and it behaves pretty much as a pylint plugin.
 - The only notable difference is you probably have to install a system library.
   On WSL/Ubuntu this would be `sudo apt-get install enchant`.
