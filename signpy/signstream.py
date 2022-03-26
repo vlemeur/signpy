@@ -1,11 +1,10 @@
 """Build the main application"""
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 from hydralit import HydraApp, HydraHeadApp
 from PIL import Image
-import pandas as pd
-
 
 # Loading logo for favicon
 PATH_LOGO = Path(__file__).parent.parent / "static" / "sign-language.png"
@@ -37,7 +36,7 @@ def remove_top_whitespace() -> None:
 
 
 class SignInput(HydraHeadApp):
-    """ Sign Py main tab
+    """Sign Py main tab
 
     Parameters
     ----------
@@ -52,26 +51,21 @@ class SignInput(HydraHeadApp):
         # Sidebar
         st.sidebar.image(image=logo, caption="SignPy", width=150)
         st.sidebar.info("Welcome to Python sign recognition app")
-        st.sidebar.info(
-            "1. TO BE CONTINUED"
-        )
-        st.sidebar.info(
-            "2. TO BE CONTINUED"
-        )
+        st.sidebar.info("1. TO BE CONTINUED")
+        st.sidebar.info("2. TO BE CONTINUED")
 
         # Splitting the page into 5 panels, 2 being used for padding
         column_1, _, _, _, column_3 = st.columns((16, 1, 10, 1, 18))
 
         with column_1:
             st.header("1. Input ??")
-            
+
         with column_3:
             st.header("2. Input ??")
 
-           
 
 class OtherTab(HydraHeadApp):
-    """ Optional Tab
+    """Optional Tab
 
     Parameters
     ----------
@@ -86,8 +80,6 @@ class OtherTab(HydraHeadApp):
         # Sidebar
         st.sidebar.image(image=logo, caption="Sign py", width=150)
         st.sidebar.info("Bienvenue dans une section sans aucune utilité")
-
-
 
 
 class NoLoader:
