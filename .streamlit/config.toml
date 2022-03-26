@@ -1,0 +1,14 @@
+# File name and location set from documentation recommendations
+# https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
+
+[theme]
+base="light"
+primaryColor="#1089FF" # -> Metroscope Official Blue
+#textColor="#142433" # -> Metroscope Software Navigation Bar (not completely black)
+
+[server]
+runOnSave=true
+
+[browser]
+# Remove telemetry, enabled by default
+gatherUsageStats=false
