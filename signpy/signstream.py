@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from hydralit import HydraApp, HydraHeadApp
+from hydralit import HydraApp, HydraHeadApp  # type: ignore
 from PIL import Image
 
 # Loading logo for favicon
