@@ -15,6 +15,8 @@ from streamlit_webrtc import ClientSettings, VideoTransformerBase, webrtc_stream
 PATH_REPO = Path(__file__).parent.parent
 PATH_LOGO = PATH_REPO / "static" / "sign-language.png"
 PATH_MODELS = PATH_REPO / "pickles"
+PATH_STYLE = PATH_MODELS / "style-transfer"
+
 logo = Image.open(fp=PATH_LOGO)
 
 style_models_name = [
@@ -39,7 +41,7 @@ style_models_file = [
     "the_wave.t7",
     "udnie.t7",
 ]
-style_models_dict = {name: PATH_MODELS / file for name, file in zip(style_models_name, style_models_file)}
+style_models_dict = {name: PATH_STYLE / file for name, file in zip(style_models_name, style_models_file)}
 
 
 def remove_top_whitespace() -> None:
