@@ -82,7 +82,7 @@ class OtherTab(HydraHeadApp):
         st.sidebar.info("Bienvenue dans une section sans aucune utilité")
 
 
-class NoLoader:
+class NoLoader:  # pylint:disable=too-few-public-methods
     """Simple class to override the default loader to remove loading animation and movements."""
 
     def run(self, app_target):  # pylint:disable=no-self-use
