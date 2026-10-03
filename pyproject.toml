@@ -15,6 +15,7 @@ dependencies = [
     "kaleido>=1.1.0,<2",
     "pillow>=12,<13",
     "streamlit>=1.50,<2",
+    "numpy>=2.5,<3",
 ]
 
 [project.urls]
@@ -43,7 +44,7 @@ build-backend = "setuptools.build_meta"
 include = ["signpy*"]
 
 [tool.setuptools.package-data]
-signpy = ["py.typed", "static/*.png"]
+signpy = ["py.typed", "static/*.png", "static/sign_capture/*.html"]
 
 [tool.ruff]
 line-length = 100
