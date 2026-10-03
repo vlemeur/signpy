@@ -1,5 +1,5 @@
-"""This module provides default values for plotting parameters that you can use to produce nice graphs.
-"""
+"""Provide default plotting parameters."""
+
 LARGE = 20
 SMALL = 15
 

@@ -1,29 +1,29 @@
 signpy
-==============================
+======
 
 .. toctree::
-   :hidden:
    :maxdepth: 1
 
    reference
 
-Repository for the `signpy` library.
+Sign Language recognition with a Streamlit application, targeting Python 3.14.
 
+Development setup
+-----------------
 
-Installation
-------------
-
-The source code is stored on Jfrog and requires associated login and password.
-Make sure `~/.pip/pip.conf` is configured.
-Use the package manager `pip <https://pip.pypa.io/en/stable/>`_ to install mts_preprocessing.
+Install uv and just, then run from the repository root:
 
 .. code-block:: console
 
-   $ pip install signpy
+   just setup
+   just run
+
+Run all quality checks and tests with ``just all``.
+Build this documentation with ``just docs``.
 
 Quickstart
-------------
+----------
 
 .. code-block:: python
 
-   $ import signpy
+   import signpy

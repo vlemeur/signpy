@@ -1,32 +1,18 @@
-FROM python:3.9.10-slim
+FROM ghcr.io/astral-sh/uv:0.11.7 AS uv
+FROM python:3.14-slim
 
-ARG LIBRARY_TAG
-ARG LIBRARY_NAME
-
-ENV LIBRARY_TAG=$LIBRARY_TAG
-ENV LIBRARY_NAME=$LIBRARY_NAME
-
+COPY --from=uv /uv /uvx /bin/
 WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
-# Install
-COPY ./.streamlit/streamlit-requirements.txt ./streamlit-requirements.txt
-RUN pip3 install -r streamlit-requirements.txt
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --locked --no-dev --no-install-project
+COPY signpy ./signpy
+COPY .streamlit/config.toml ./.streamlit/config.toml
+RUN uv sync --locked --no-dev
 
-# Get streamlit scripts
-# Necessary to create a nested dictionnary so the pickle paths work here as they do locally
-COPY ./${LIBRARY_NAME}/signstream.py ./signstream/signstream.py
-
-# Copying the logo directly into the docker image
-COPY ./static ./static
-
-# Copy streamlit config (done only now to optimize cache)
-COPY ./.streamlit/config.toml ./.streamlit/config.toml
-
-# Get Models
-COPY ./pickles ./pickles
-
+ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8501
-
-ENTRYPOINT ["streamlit", "run"]
-
-CMD ["signstream/signstream.py"]
+HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
+ENTRYPOINT ["streamlit", "run", "signpy/signstream.py"]
+CMD ["--server.address=0.0.0.0", "--server.headless=true"]
