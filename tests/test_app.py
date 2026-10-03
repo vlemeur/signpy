@@ -9,7 +9,7 @@ from streamlit.testing.v1 import AppTest
 import signpy.signstream as signstream
 from signpy import references as references_module
 from signpy.constants import REFERENCE_STATIC
-from signpy.paths import PATH_LOGO, PATH_SIGN_CAPTURE
+from signpy.paths import PATH_LOGO, PATH_LSF_ALPHABET, PATH_SIGN_CAPTURE
 from signpy.references import Reference, load_reference, save_reference
 from signpy.scoring import normalize_hand
 
@@ -171,6 +171,11 @@ def _image_batch_payload() -> dict:
 
 def test_record_page_images_mode_saves_references(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(references_module, "PATH_REFERENCES", tmp_path)
+    alphabet = tmp_path / "alphabet"
+    alphabet.mkdir()
+    (alphabet / "A.jpg").write_bytes(b"fake image")
+    (alphabet / "B.jpg").write_bytes(b"fake image")
+    monkeypatch.setattr(signstream, "PATH_LSF_ALPHABET", alphabet)
     state = {"payload": None}
     monkeypatch.setattr(signstream, "sign_capture", lambda key, **args: state["payload"])
 
@@ -182,7 +187,7 @@ def test_record_page_images_mode_saves_references(tmp_path, monkeypatch) -> None
 
     app.button[0].set_value(True).run(timeout=30)
     assert not app.exception
-    assert "26 image(s) chargée(s)" in app.caption[-1].value
+    assert "2 image(s) chargée(s)" in app.caption[-1].value
 
     state["payload"] = _image_batch_payload()
     app.run(timeout=30)
@@ -198,3 +203,10 @@ def test_record_page_images_mode_saves_references(tmp_path, monkeypatch) -> None
     reference = load_reference("A")
     assert reference is not None
     assert len(reference.samples) == 1
+
+
+def test_lsf_alphabet_is_packaged() -> None:
+    images = list(PATH_LSF_ALPHABET.glob("*.jpg"))
+    assert len(images) == 26
+    assert {path.stem for path in images} == set("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    assert (PATH_LSF_ALPHABET / "CREDITS.md").is_file()

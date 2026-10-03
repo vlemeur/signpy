@@ -10,13 +10,8 @@ import streamlit as st
 from PIL import Image
 
 from signpy.capture import sign_capture
-from signpy.constants import (
-    PATH_LSF_ALPHABET,
-    REFERENCE_DYNAMIC,
-    REFERENCE_KINDS,
-    REFERENCE_STATIC,
-)
-from signpy.paths import PATH_LOGO
+from signpy.constants import REFERENCE_DYNAMIC, REFERENCE_KINDS, REFERENCE_STATIC
+from signpy.paths import PATH_LOGO, PATH_LSF_ALPHABET
 from signpy.references import (
     Reference,
     delete_reference,

@@ -7,4 +7,3 @@ REFERENCE_DYNAMIC = "dynamique"
 REFERENCE_KINDS = (REFERENCE_STATIC, REFERENCE_DYNAMIC)
 
 PATH_REFERENCES = Path("data") / "references"
-PATH_LSF_ALPHABET = Path("data") / "lsf_alphabet"

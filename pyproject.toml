@@ -44,7 +44,7 @@ build-backend = "setuptools.build_meta"
 include = ["signpy*"]
 
 [tool.setuptools.package-data]
-signpy = ["py.typed", "static/*.png", "static/sign_capture/*.html"]
+signpy = ["py.typed", "static/*.png", "static/sign_capture/*.html", "static/lsf_alphabet/*"]
 
 [tool.ruff]
 line-length = 100
