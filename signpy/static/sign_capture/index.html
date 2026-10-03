@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>SignPy - Capture</title>
+  <style>
+    body { margin: 0; font-family: "Source Sans Pro", sans-serif; background: transparent; }
+    #stage, #import-stage { position: relative; width: 640px; background: #0e1117;
+                            border-radius: 8px; overflow: hidden; }
+    #stage { height: 480px; }
+    #video, #overlay { position: absolute; top: 0; left: 0; width: 640px; height: 480px; transform: scaleX(-1); }
+    #import-video { display: block; width: 640px; }
+    #import-overlay { position: absolute; top: 0; left: 0; width: 640px; pointer-events: none; }
+    #status { color: #ddd; font-size: 14px; margin: 8px 0; min-height: 20px; }
+    button { margin: 8px 8px 0 0; padding: 6px 14px; border: none; border-radius: 6px;
+             background: #ff4b4b; color: white; font-size: 14px; cursor: pointer; }
+    button:disabled { background: #555; cursor: default; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay" width="640" height="480"></canvas>
+  </div>
+  <div id="import-stage" style="display: none;">
+    <video id="import-video" controls muted playsinline></video>
+    <canvas id="import-overlay" width="640" height="480"></canvas>
+  </div>
+  <div id="status">Camera inactive. Click on "Activer la camera".</div>
+  <button id="start">Activer la camera</button>
+  <button id="evaluate" disabled>Evaluer</button>
+  <button id="analyze" style="display: none;">Analyser la video</button>
+
+  <script>
+    // Streamlit handshake: keep in a classic script so the component frame is
+    // sized correctly even if the recognition module cannot be loaded.
+    function sendToStreamlit(type, data) {
+      window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type }, data), "*");
+    }
+    sendToStreamlit("streamlit:componentReady", { apiVersion: 1 });
+    sendToStreamlit("streamlit:setFrameHeight", { height: 580 });
+    function setValue(value) {
+      sendToStreamlit("streamlit:setComponentValue", { value: value, dataType: "json" });
+    }
+    let componentArgs = {};
+    function applyMode() {
+      const importMode = componentArgs.import_mode === true;
+      const hasImages = importMode && Array.isArray(componentArgs.image_urls);
+      document.getElementById("stage").style.display = importMode ? "none" : "block";
+      document.getElementById("start").style.display = importMode ? "none" : "inline-block";
+      document.getElementById("evaluate").style.display = importMode ? "none" : "inline-block";
+      document.getElementById("import-stage").style.display = importMode ? "block" : "none";
+      document.getElementById("analyze").style.display = importMode ? "inline-block" : "none";
+      document.getElementById("import-video").style.display = hasImages ? "none" : "block";
+      document.getElementById("analyze").textContent = hasImages
+        ? "Analyser les images"
+        : "Analyser la video";
+      if (importMode && !hasImages) {
+        const importVideo = document.getElementById("import-video");
+        if (componentArgs.video_url && importVideo.src !== componentArgs.video_url) {
+          importVideo.src = componentArgs.video_url;
+        }
+        document.getElementById("status").textContent = "Video loaded. Click on \"Analyser la video\".";
+      }
+      if (hasImages) {
+        document.getElementById("status").textContent =
+          componentArgs.image_urls.length + " image(s) prete(s). Clique sur Analyser les images.";
+      }
+    }
+    window.addEventListener("message", function (event) {
+      if (event.data && event.data.type === "streamlit:render") {
+        componentArgs = event.data.args || {};
+        applyMode();
+      }
+    });
+  </script>
+
+  <script type="module">
+    const MEDIAPIPE_VERSION = "1.0.1";
+    const BUNDLE_URL =
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MEDIAPIPE_VERSION + "/vision_bundle.mjs";
+    const WASM_URL =
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MEDIAPIPE_VERSION + "/wasm";
+    const MODEL_URL =
+      "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+    const IMPORT_MAX_FRAMES = 90;
+    const IMPORT_SAMPLES_PER_SECOND = 15;
+
+    const video = document.getElementById("video");
+    const overlay = document.getElementById("overlay");
+    const importVideo = document.getElementById("import-video");
+    const importOverlay = document.getElementById("import-overlay");
+    const statusEl = document.getElementById("status");
+    const startBtn = document.getElementById("start");
+    const evaluateBtn = document.getElementById("evaluate");
+    const analyzeBtn = document.getElementById("analyze");
+    const context = overlay.getContext("2d");
+    const importContext = importOverlay.getContext("2d");
+
+    const MAX_BUFFERED_FRAMES = 60;
+    const HAND_CONNECTIONS = [
+      [0, 1], [1, 2], [2, 3], [3, 4],
+      [0, 5], [5, 6], [6, 7], [7, 8],
+      [5, 9], [9, 10], [10, 11], [11, 12],
+      [9, 13], [13, 14], [14, 15], [15, 16],
+      [13, 17], [17, 18], [18, 19], [19, 20], [0, 17],
+    ];
+
+    let FilesetResolver = null;
+    let HandLandmarker = null;
+    let landmarker = null;
+    let imageLandmarker = null;
+    let running = false;
+    let lastVideoTime = -1;
+    let frameCount = 0;
+    let fps = 0;
+    let lastFpsAt = performance.now();
+    let buffer = [];
+    let captureId = 0;
+    let analyzing = false;
+
+    async function loadMediapipe() {
+      if (FilesetResolver !== null) return;
+      const module = await import(BUNDLE_URL);
+      FilesetResolver = module.FilesetResolver;
+      HandLandmarker = module.HandLandmarker;
+    }
+
+    async function createLandmarker() {
+      const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+      const baseOptions = { modelAssetPath: MODEL_URL };
+      try {
+        return await HandLandmarker.createFromOptions(fileset, {
+          baseOptions: Object.assign({ delegate: "GPU" }, baseOptions),
+          numHands: 2,
+          runningMode: "VIDEO",
+        });
+      } catch (error) {
+        return await HandLandmarker.createFromOptions(fileset, {
+          baseOptions: Object.assign({ delegate: "CPU" }, baseOptions),
+          numHands: 2,
+          runningMode: "VIDEO",
+        });
+      }
+    }
+
+    async function ensureLandmarker() {
+      statusEl.textContent = "Loading the recognition model...";
+      try {
+        await loadMediapipe();
+        if (landmarker === null) {
+          landmarker = await createLandmarker();
+        }
+        return true;
+      } catch (error) {
+        statusEl.textContent = "Model loading failed: " + error.message;
+        return false;
+      }
+    }
+
+    async function ensureImageLandmarker() {
+      statusEl.textContent = "Loading the recognition model...";
+      try {
+        await loadMediapipe();
+        if (imageLandmarker === null) {
+          const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+          imageLandmarker = await HandLandmarker.createFromOptions(fileset, {
+            baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+            numHands: 1,
+            runningMode: "IMAGE",
+          });
+        }
+        return true;
+      } catch (error) {
+        try {
+          const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+          imageLandmarker = await HandLandmarker.createFromOptions(fileset, {
+            baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+            numHands: 1,
+            runningMode: "IMAGE",
+          });
+          return true;
+        } catch (secondError) {
+          statusEl.textContent = "Model loading failed: " + secondError.message;
+          return false;
+        }
+      }
+    }
+
+    async function startCamera() {
+      startBtn.disabled = true;
+      if (!(await ensureLandmarker())) {
+        startBtn.disabled = false;
+        return;
+      }
+      statusEl.textContent = "Waiting for camera permission...";
+      try {
+        video.srcObject = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: "user" },
+          audio: false,
+        });
+      } catch (error) {
+        statusEl.textContent = "Camera access refused: " + error.message;
+        startBtn.disabled = false;
+        return;
+      }
+      running = true;
+      evaluateBtn.disabled = false;
+      requestAnimationFrame(loop);
+    }
+
+    function loop() {
+      if (!running) return;
+      if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+        lastVideoTime = video.currentTime;
+        const result = landmarker.detectForVideo(video, performance.now());
+        draw(result, context, overlay);
+        bufferFrame(result);
+        updateFps();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    function updateFps() {
+      frameCount += 1;
+      const now = performance.now();
+      const elapsed = (now - lastFpsAt) / 1000;
+      if (elapsed >= 1) {
+        fps = Math.round(frameCount / elapsed);
+        frameCount = 0;
+        lastFpsAt = now;
+      }
+    }
+
+    function draw(result, canvasContext, canvas) {
+      canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+      const hands = result.landmarks || [];
+      canvasContext.fillStyle = "#00ff88";
+      canvasContext.strokeStyle = "#00ff88";
+      for (const landmarks of hands) {
+        for (const [start, end] of HAND_CONNECTIONS) {
+          const a = landmarks[start];
+          const b = landmarks[end];
+          canvasContext.lineWidth = 2;
+          canvasContext.beginPath();
+          canvasContext.moveTo(a.x * canvas.width, a.y * canvas.height);
+          canvasContext.lineTo(b.x * canvas.width, b.y * canvas.height);
+          canvasContext.stroke();
+        }
+        for (const point of landmarks) {
+          canvasContext.beginPath();
+          canvasContext.arc(point.x * canvas.width, point.y * canvas.height, 4, 0, 2 * Math.PI);
+          canvasContext.fill();
+        }
+      }
+      if (canvas === overlay) {
+        const handCount = hands.length;
+        const shape = handCount === 0 ? "no hand detected" : handCount + " hand" + (handCount > 1 ? "s" : "");
+        statusEl.textContent = "Live: " + shape + " - " + fps + " fps";
+      }
+    }
+
+    function bufferFrame(result) {
+      const hands = (result.landmarks || []).map((landmarks, index) => ({
+        handedness: (result.handednesses && result.handednesses[index] &&
+                     result.handednesses[index][0] && result.handednesses[index][0].categoryName) || "Unknown",
+        landmarks: landmarks.map((point) => ({ x: point.x, y: point.y, z: point.z })),
+      }));
+      buffer.push({ timeMs: Math.round(performance.now()), hands });
+      if (buffer.length > MAX_BUFFERED_FRAMES) {
+        buffer.shift();
+      }
+    }
+
+    function evaluate() {
+      captureId += 1;
+      if (buffer.length === 0) {
+        setValue({ status: "empty", captureId: captureId, fps: fps });
+        return;
+      }
+      setValue({ status: "capture", captureId: captureId, fps: fps, frames: buffer.slice() });
+    }
+
+    function seekTo(element, time) {
+      return new Promise(function (resolve) {
+        element.addEventListener("seeked", function () { resolve(); }, { once: true });
+        element.currentTime = time;
+      });
+    }
+
+    async function analyzeVideo() {
+      if (analyzing) return;
+      if (Array.isArray(componentArgs.image_urls)) {
+        await analyzeImages();
+        return;
+      }
+      const duration = importVideo.duration;
+      if (!isFinite(duration) || duration <= 0) {
+        statusEl.textContent = "Unreadable or empty video.";
+        return;
+      }
+      analyzing = true;
+      analyzeBtn.disabled = true;
+      if (!(await ensureLandmarker())) {
+        analyzing = false;
+        analyzeBtn.disabled = false;
+        return;
+      }
+      buffer = [];
+      importOverlay.width = importVideo.videoWidth || 640;
+      importOverlay.height = importVideo.videoHeight || 480;
+      const frameTotal = Math.max(
+        2,
+        Math.min(IMPORT_MAX_FRAMES, Math.round(duration * IMPORT_SAMPLES_PER_SECOND))
+      );
+      for (let index = 0; index < frameTotal; index += 1) {
+        const time = Math.min(duration - 0.02, (index / (frameTotal - 1)) * duration);
+        await seekTo(importVideo, time);
+        const result = landmarker.detectForVideo(importVideo, performance.now());
+        bufferFrame(result);
+        draw(result, importContext, importOverlay);
+        statusEl.textContent = "Analyse: " + (index + 1) + "/" + frameTotal + " frames";
+      }
+      importVideo.pause();
+      captureId += 1;
+      if (buffer.length === 0) {
+        statusEl.textContent = "No hand detected in the video.";
+        setValue({ status: "empty", captureId: captureId, fps: 0 });
+      } else {
+        statusEl.textContent = "Analysis complete: " + buffer.length + " frames.";
+        setValue({ status: "capture", captureId: captureId, fps: 0, frames: buffer.slice() });
+      }
+      analyzing = false;
+      analyzeBtn.disabled = false;
+    }
+
+    async function loadImage(dataUrl) {
+      return new Promise(function (resolve, reject) {
+        const image = new Image();
+        image.onload = function () { resolve(image); };
+        image.onerror = function () { reject(new Error("image illisible")); };
+        image.src = dataUrl;
+      });
+    }
+
+    async function analyzeImages() {
+      const entries = componentArgs.image_urls || [];
+      if (entries.length === 0) {
+        statusEl.textContent = "Aucune image fournie.";
+        return;
+      }
+      analyzing = true;
+      analyzeBtn.disabled = true;
+      if (!(await ensureImageLandmarker())) {
+        analyzing = false;
+        analyzeBtn.disabled = false;
+        return;
+      }
+      const images = [];
+      const detected = [];
+      for (let index = 0; index < entries.length; index += 1) {
+        const entry = entries[index];
+        try {
+          const image = await loadImage(entry.url);
+          const scale = Math.min(1, 640 / image.width, 480 / image.height);
+          importOverlay.width = Math.round(image.width * scale);
+          importOverlay.height = Math.round(image.height * scale);
+          importContext.drawImage(image, 0, 0, importOverlay.width, importOverlay.height);
+          const result = imageLandmarker.detect(importOverlay);
+          const hands = (result.landmarks || []).map(function (landmarks, handIndex) {
+            return {
+              handedness: (result.handednesses && result.handednesses[handIndex] &&
+                           result.handednesses[handIndex][0] &&
+                           result.handednesses[handIndex][0].categoryName) || "Unknown",
+              landmarks: landmarks.map(function (point) {
+                return { x: point.x, y: point.y, z: point.z };
+              }),
+            };
+          });
+          images.push({ name: entry.name, hands: hands });
+          if (hands.length > 0) {
+            detected.push(entry.name);
+            draw(result, importContext, importOverlay);
+          }
+        } catch (error) {
+          images.push({ name: entry.name, hands: [] });
+        }
+        statusEl.textContent = "Analyse: " + (index + 1) + "/" + entries.length +
+          " (" + detected.length + " mains detectees)";
+      }
+      captureId += 1;
+      statusEl.textContent = "Analyse terminee: " + detected.length + "/" + entries.length +
+        " images avec main detectee.";
+      setValue({ status: "image_batch", captureId: captureId, images: images });
+      analyzing = false;
+      analyzeBtn.disabled = false;
+    }
+
+    startBtn.addEventListener("click", startCamera);
+    evaluateBtn.addEventListener("click", evaluate);
+    analyzeBtn.addEventListener("click", analyzeVideo);
+  </script>
+</body>
+</html>
