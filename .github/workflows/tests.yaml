@@ -1,75 +1,40 @@
-
-name: Linters and Tests
+name: Quality and Tests
 
 on:
   push:
-    branches:
-      - "**"
-    tags:
-      - "!*"
+    branches: ["**"]
+  pull_request:
 
-env:
-  PIP_INDEX_URL: https://pypi.python.org/simple
+permissions:
+  contents: read
 
 jobs:
-  lint:
-    name: Linters on Python 3.8 (ubuntu-latest)
+  quality:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Current Branch
-        uses: actions/checkout@v2
-      - name: Set Up Python 3.8
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: 3.8
-      - name: Install Tox
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox~=3.24.4
-      - name: Run Build
-        run: tox -e build
-      - name: Run Bandit
-        run: tox -e bandit
-      - name: Run Black
-        run: tox -e black
-      - name: Run Isort
-        run: tox -e isort
-      - name: Run pylint
-        run: tox -e pylint
-      - name: Install enchant
-        run: sudo apt-get install enchant
-      - name: Run spellcheck
-        run: tox -e spelling
-      - name: Run mypy
-        run: tox -e mypy
-      - name: Run flake8
-        run: tox -e flake8
-      - name: Run Safety
-        run: tox -e safety
+          version: "0.11.7"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked ty check
+      - run: uv run --locked prek run --all-files
+      - run: uv build
+      - run: uv run --locked --group docs sphinx-build -W --keep-going docs docs/_build
 
   tests:
-    needs: lint
     strategy:
       matrix:
-        include:
-          - { python: 3.8, os: ubuntu-latest }
-          - { python: 3.9, os: ubuntu-latest }
-          - { python: 3.9, os: windows-latest }
-    name: Python ${{ matrix.python }} (${{ matrix.os }})
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Current Branch
-        uses: actions/checkout@v2
-      - name: Set Up Python ${{ matrix.python }}
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python }}
-      - name: Install Tox
-        run: |
-          python -m pip install --upgrade pip
-          pip install tox~=3.24.4 coverage==5.4
-      - name: Run Tests with tox
-        # Run tox using the version of Python in `PATH`
-        run: |
-          tox -e py
-          coverage xml
+          version: "0.11.7"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked pytest --cov=signpy --cov-report=term-missing --cov-report=xml

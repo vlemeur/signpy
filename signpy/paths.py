@@ -1,10 +1,6 @@
-"""Provide generic paths used in modules"""
+"""Provide paths to packaged application assets."""
 
 from pathlib import Path
 
-# Paths to folders
-PATH_REPO = Path(".").parent.parent
-PATH_STATIC = PATH_REPO / "static"
-
-# Paths to files
+PATH_STATIC = Path(__file__).resolve().parent / "static"
 PATH_LOGO = PATH_STATIC / "sign-language.png"

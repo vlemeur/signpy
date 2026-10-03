@@ -1,13 +1,20 @@
 Reference
 =========
 
-.. contents::
-    :local:
-    :backlinks: none
+Application
+-----------
 
-# This block has to be copy-pasted and filled with all modules in the package
-signpy.your_module_name
---------------------------
+.. automodule:: signpy.signstream
+   :members:
 
-.. automodule:: signpy.your_module_name
+Paths
+-----
+
+.. automodule:: signpy.paths
+   :members:
+
+Plot parameters
+---------------
+
+.. automodule:: signpy.plot_params
    :members:

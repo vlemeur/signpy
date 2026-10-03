@@ -1,13 +1,76 @@
-[build-system]
-requires = [
-    "setuptools~=53.0.0",
-    "wheel~=0.36.2"
+[project]
+name = "signpy"
+version = "0.0.0"
+description = "Sign Language recognition"
+readme = "README.md"
+license = "LicenseRef-Proprietary"
+classifiers = ["Programming Language :: Python :: 3.14"]
+authors = [{ name = "Vincent LE MEUR", email = "vincenlemeur@gmail.com" }]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "pandas>=2.3.3,<4",
+    "joblib>=1.5.2,<2",
+    "matplotlib>=3.10.7,<4",
+    "plotly>=6.3.1,<7",
+    "kaleido>=1.1.0,<2",
+    "pillow>=12,<13",
+    "streamlit>=1.50,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/vlemeur/signpy"
+
+[dependency-groups]
+dev = [
+    "prek>=0.4,<0.5",
+    "ruff>=0.14,<1",
+    "ty>=0.0.1,<0.1",
+    "pytest>=9,<10",
+    "pytest-cov>=7,<8",
+]
+docs = [
+    "sphinx>=9,<10",
+    "sphinx-autodoc-typehints>=3.6,<4",
+    "sphinx-rtd-theme>=3,<4",
+]
+notebooks = ["ipykernel>=7,<8", "nbconvert>=7.16,<8"]
+
+[build-system]
+requires = ["setuptools>=80", "wheel>=0.45"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-line-length = 120
+[tool.setuptools.packages.find]
+include = ["signpy*"]
 
-[tool.isort]
-profile = "black"
-line_length = 120
+[tool.setuptools.package-data]
+signpy = ["py.typed", "static/*.png"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["signpy", "tests"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["signpy"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.src]
+include = ["signpy", "tests", "docs/conf.py"]
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["signpy"]
+omit = ["signpy/plot_params.py"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = ['if __name__ == "__main__":']
