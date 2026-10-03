@@ -60,7 +60,8 @@ def test_component_frontend_is_packaged() -> None:
     assert "getUserMedia" in index_html
 
 
-def test_practice_page_without_references() -> None:
+def test_practice_page_without_references(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(references_module, "PATH_REFERENCES", tmp_path)
     app = AppTest.from_file(str(APP)).run(timeout=30)
     assert not app.exception
     assert app.header[0].value == "S'exercer"
@@ -116,7 +117,7 @@ def test_practice_page_scores_a_capture(tmp_path, monkeypatch) -> None:
 def test_record_page_stores_a_capture(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(references_module, "PATH_REFERENCES", tmp_path)
     state = {"payload": _capture_payload()}
-    monkeypatch.setattr(signstream, "sign_capture", lambda key: state["payload"])
+    monkeypatch.setattr(signstream, "sign_capture", lambda key, **args: state["payload"])
 
     app = AppTest.from_string("from signpy.signstream import record_page\nrecord_page()")
     app.run(timeout=30)
@@ -125,8 +126,75 @@ def test_record_page_stores_a_capture(tmp_path, monkeypatch) -> None:
 
     state["payload"] = _capture_payload(capture_id=4)
     app.text_input[0].set_value("B").run(timeout=30)
-    assert app.success[0].value == "Référence 'B' enregistrée (1 échantillon(s))."
+    assert app.success[0].value == "Référence 'B' enregistrée."
     reference = load_reference("B")
     assert reference is not None
     assert reference.kind == REFERENCE_STATIC
+    assert len(reference.samples) == 1
+
+
+def test_record_page_video_mode_imports_a_capture(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(references_module, "PATH_REFERENCES", tmp_path)
+    monkeypatch.setattr(signstream, "sign_capture", lambda key, **args: None)
+
+    app = AppTest.from_string("from signpy.signstream import record_page\nrecord_page()")
+    app.run(timeout=30)
+    app.radio(key="record-mode").set_value(signstream.IMPORT_MODE_VIDEO).run(timeout=30)
+    assert not app.exception
+    assert len(app.file_uploader) == 1
+    assert app.info[0].value.startswith("Choisis un court clip vidéo")
+
+    state = {"payload": _capture_payload(capture_id=7)}
+    monkeypatch.setattr(signstream, "sign_capture", lambda key, **args: state["payload"])
+    app.text_input[0].set_value("B").run(timeout=30)
+    app.file_uploader[0].set_value(("clip.mp4", b"fake video bytes", "video/mp4")).run(timeout=30)
+    assert not app.exception
+    assert app.success[0].value == "Référence 'B' importée depuis la vidéo."
+    reference = load_reference("B")
+    assert reference is not None
+    assert reference.kind == REFERENCE_STATIC
+    assert len(reference.samples) == 1
+
+
+def _image_batch_payload() -> dict:
+    hand = _fake_hand()
+    entry = {
+        "handedness": "Right",
+        "landmarks": [{"x": float(x), "y": float(y), "z": float(z)} for x, y, z in hand],
+    }
+    return {
+        "status": "image_batch",
+        "captureId": 9,
+        "images": [{"name": "A", "hands": [entry]}, {"name": "C", "hands": []}],
+    }
+
+
+def test_record_page_images_mode_saves_references(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(references_module, "PATH_REFERENCES", tmp_path)
+    state = {"payload": None}
+    monkeypatch.setattr(signstream, "sign_capture", lambda key, **args: state["payload"])
+
+    app = AppTest.from_string("from signpy.signstream import record_page\nrecord_page()")
+    app.run(timeout=30)
+    app.radio(key="record-mode").set_value(signstream.IMPORT_MODE_IMAGES).run(timeout=30)
+    assert not app.exception
+    assert app.info[0].value.startswith("Charge l'alphabet dactylologique LSF fourni")
+
+    app.button[0].set_value(True).run(timeout=30)
+    assert not app.exception
+    assert "26 image(s) chargée(s)" in app.caption[-1].value
+
+    state["payload"] = _image_batch_payload()
+    app.run(timeout=30)
+    assert not app.exception
+    assert app.success[0].value == "1 référence(s) importée(s) depuis les images."
+    assert app.warning[0].value == "Aucune main détectée dans : C"
+    reference = load_reference("A")
+    assert reference is not None
+    assert reference.kind == REFERENCE_STATIC
+    assert len(reference.samples) == 1
+
+    app.run(timeout=30)
+    reference = load_reference("A")
+    assert reference is not None
     assert len(reference.samples) == 1
